@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Training Data
+training_data/
+
 # Distribution / packaging
 .Python
 build/
@@ -65,12 +68,6 @@ db.sqlite3-journal
 instance/
 .webassets-cache
 
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
 # PyBuilder
 target/
 
@@ -94,14 +91,8 @@ ipython_config.py
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
 # Environments
+.DS_Store
 .env
 .venv
 env/
@@ -113,9 +104,6 @@ venv.bak/
 # Spyder project settings
 .spyderproject
 .spyproject
-
-# Rope project settings
-.ropeproject
 
 # mkdocs documentation
 /site
