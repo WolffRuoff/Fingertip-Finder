@@ -16,20 +16,27 @@ from functools import partial
 
 # img_dir is the directory where the images are located
 # please modify as needed to match the folder structure
-img_dir = '../training_data/color/'
-mask_dir = '../training_data/mask/'
+img_dir = '../../training_data/color/'
+mask_dir = '../../training_data/mask/'
 
 data_filenames = os.listdir(img_dir)
 mask_filenames = os.listdir(mask_dir)
 img_paths = [img_dir + p for p in data_filenames if '.jpg' in p]
 mask_paths = [mask_dir + p for p in mask_filenames if '.jpg' in p]
-take_idx = np.arange(10000)
+take_idx = np.arange(28000)
 np.random.shuffle(take_idx)
+# take_idx = take_idx[:4000]
+# img_paths = np.take(img_paths, take_idx)
+# mask_paths = np.take(mask_paths, take_idx)
+# img_train, mask_train = img_paths[:3000], mask_paths[:3000]
+# img_val, mask_val = img_paths[3000:3500], mask_paths[3000:3500]
+# img_test, mask_test = img_paths[3500:], mask_paths[3500:]
+
 img_paths = np.take(img_paths, take_idx)
 mask_paths = np.take(mask_paths, take_idx)
-img_train, mask_train = img_paths[:8000], mask_paths[:8000]
-img_val, mask_val = img_paths[8000:9000], mask_paths[8000:9000]
-img_test, mask_test = img_paths[9000:], mask_paths[9000:]
+img_train, mask_train = img_paths[:25000], mask_paths[:25000]
+img_val, mask_val = img_paths[25000:26500], mask_paths[25000:26500]
+img_test, mask_test = img_paths[26500:], mask_paths[26500:]
 
 class FingerDataset(Dataset):
     def __init__(self, data_paths, mask_paths, img_transform=None, mask_transform=None):
@@ -106,7 +113,7 @@ def main(TILE_HEIGHT, TILE_WIDTH, batch_size=8, num_workers=2):
     data_test = FingerDataset(img_test, mask_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
 
     # initialize dataloaders for the dataset
-    loader_train = DataLoader(data_train, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True)
+    loader_train = DataLoader(data_train, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True, pin_memory=True)
     loader_val = DataLoader(data_val, batch_size=batch_size, shuffle=False, num_workers=0, drop_last=True)
     loader_test = DataLoader(data_test, batch_size=batch_size, shuffle=False, num_workers=0, drop_last=True)
 
