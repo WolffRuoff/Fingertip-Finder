@@ -9,6 +9,9 @@ __pycache__/
 # Training Data
 training_data/
 
+# Saved Models
+saved_models/
+
 # Distribution / packaging
 .Python
 build/

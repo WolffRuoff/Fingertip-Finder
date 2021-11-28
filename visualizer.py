@@ -26,7 +26,7 @@ def plot_tiles(img, num_tiles_v, num_tiles_h, channel=None):
                 axs[i,j].axis('off')
         plt.subplots_adjust(wspace=0.05, hspace=0.05)
 
-def visualize_model_output(dataloader, model, num, TILE_HEIGHT=TILE_HEIGHT, TILE_WIDTH=TILE_WIDTH, device='cuda'):
+def visualize_model_output(dataloader, model, num, tile_height=TILE_HEIGHT, tile_width=TILE_WIDTH, device='cuda'):
     while num > 0:
         x, y = next(iter(dataloader))
         print(x.shape, y.shape)
@@ -39,7 +39,7 @@ def visualize_model_output(dataloader, model, num, TILE_HEIGHT=TILE_HEIGHT, TILE
         print(f"Recall = {trainer.get_recall(x_out, y_reshape).item() * 100}%")
         x_out_reshaped = x_out.reshape(-1, y.shape[2], y.shape[3], y.shape[4]).cpu()
 
-        v, h = int(480/TILE_HEIGHT), int(640/TILE_WIDTH)
+        v, h = int(480/tile_height), int(640/tile_width)
         for i in range(min(num, batchsize)):
             plot_tiles(x[i], v, h, 0)
             plot_tiles(x_out_reshaped[i], v, h)
