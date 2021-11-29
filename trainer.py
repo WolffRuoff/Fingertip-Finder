@@ -2,16 +2,7 @@ import torch
 import numpy as np
 import os
 import gc
-import random
-import cv2 as cv
-import torchvision.models as models
-import torch.nn as nn
-import matplotlib.pyplot as plt
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
-from PIL import Image
 
-import dataloader
 import evaluator
 
 
@@ -38,6 +29,7 @@ def train(model, loader_train, loader_val, lr=1e-4, num_epochs=10, device='cpu',
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # From documentation: This loss combines a Sigmoid layer and the BCELoss in one single class.
+    weight = False
     if weight:
         loss_fn = nn.BCEWithLogitsLoss(
             pos_weight=torch.Tensor(weight).to(device))

@@ -16,8 +16,8 @@ from functools import partial
 
 # img_dir is the directory where the images are located
 # please modify as needed to match the folder structure
-img_dir = '../../training_data/color/'
-mask_dir = '../../training_data/mask/'
+img_dir = './training_data/color/'
+mask_dir = './training_data/mask/'
 
 data_filenames = os.listdir(img_dir)
 mask_filenames = os.listdir(mask_dir)

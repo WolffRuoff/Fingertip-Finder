@@ -1,18 +1,18 @@
 import torch
 import numpy as np
-import os
 import gc
-import random
-import cv2 as cv
-import torchvision.models as models
-import torch.nn as nn
-import matplotlib.pyplot as plt
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
-from PIL import Image
 
-import dataloader
-import trainer
+
+def get_acc(predictions, labels):
+    return torch.sum(predictions == labels)/(labels.shape[0]*labels.shape[1])
+
+
+def get_recall(predictions, labels):
+    return torch.sum((predictions == labels) * (labels == 1))/torch.sum(labels == 1)
+
+
+def get_precision(predictions, labels):
+    return torch.sum((predictions == labels) * (labels == 1))/torch.sum(predictions == 1)
 
 def get_inference_output(model, X_in, device):
     model.eval()
@@ -45,9 +45,9 @@ def evaluate_model(model, loader_val, loss_fn, device):
             predictions = torch.where(output > 0, 1, 0)
             batch_loss = loss_fn(output, y_val.float())
             
-        batch_acc = trainer.get_acc(predictions, y_val)
-        batch_recall = trainer.get_recall(predictions, y_val)
-        batch_precision = trainer.get_precision(predictions, y_val)
+        batch_acc = get_acc(predictions, y_val)
+        batch_recall = get_recall(predictions, y_val)
+        batch_precision = get_precision(predictions, y_val)
         
         acc_val.append(batch_acc.item())
         loss_val.append(batch_loss.item())
