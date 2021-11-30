@@ -57,7 +57,7 @@ class FingerDataset(Dataset):
             image = self.img_transform(image)
         if self.mask_transform:
             mask = self.mask_transform(mask_path)
-        return image, mask, img_path, mask_path
+        return image, mask
 
 # pre-processing transformations
 # threshold the images with opencv to reduce noise and improve generalization
