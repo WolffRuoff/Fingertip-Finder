@@ -1,19 +1,9 @@
 import torch
 import numpy as np
 import gc
+import trainer
 
-
-def get_acc(predictions, labels):
-    return torch.sum(predictions == labels)/(labels.shape[0]*labels.shape[1])
-
-
-def get_recall(predictions, labels):
-    return torch.sum((predictions == labels) * (labels == 1))/torch.sum(labels == 1)
-
-
-def get_precision(predictions, labels):
-    return torch.sum((predictions == labels) * (labels == 1))/torch.sum(predictions == 1)
-
+# forward pass for inference and evaluation
 def get_inference_output(model, X_in, device):
     model.eval()
     X_in = X_in.to(device)
@@ -31,11 +21,10 @@ def evaluate_model(model, loader_val, loss_fn, device):
     # set model to eval mode when evaluating on validation set
     model.eval()
     for X_val, y_val in loader_val:
-        # combine the batch and tile dimension
-        X_val = X_val.reshape(-1, X_val.shape[1], X_val.shape[3], X_val.shape[4])
-        # add a dimension to match prediction shape
         # only take the first color channel of mask
-        y_val = y_val[:,0,:,:,:].reshape(-1, y_val.shape[-2] * y_val.shape[-1])
+        y_val = y_val[:, 0, :, :]
+        # flatten the mask image
+        y_val = y_val.reshape(-1, y_val.shape[-2] * y_val.shape[-1])
         X_val, y_val = X_val.to(device), y_val.to(device)
         
         with torch.no_grad():
@@ -45,9 +34,9 @@ def evaluate_model(model, loader_val, loss_fn, device):
             predictions = torch.where(output > 0, 1, 0)
             batch_loss = loss_fn(output, y_val.float())
             
-        batch_acc = get_acc(predictions, y_val)
-        batch_recall = get_recall(predictions, y_val)
-        batch_precision = get_precision(predictions, y_val)
+        batch_acc = trainer.get_acc(predictions, y_val)
+        batch_recall = trainer.get_recall(predictions, y_val)
+        batch_precision = trainer.get_precision(predictions, y_val)
         
         acc_val.append(batch_acc.item())
         loss_val.append(batch_loss.item())

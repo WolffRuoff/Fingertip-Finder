@@ -12,8 +12,8 @@ from PIL import Image
 
 # img_dir is the directory where the images are located
 # please modify as needed to match the folder structure
-img_dir = './training_data/color/'
-mask_dir = './training_data/mask/'
+img_dir = '../training_data/color/'
+mask_dir = '../training_data/mask/'
 
 data_filenames = sorted(os.listdir(img_dir))
 mask_filenames = sorted(os.listdir(mask_dir))
@@ -71,6 +71,12 @@ def threshold_mask(img):
         pic, 1, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU)
     return threshed
 
+# Reference: https://discuss.pytorch.org/t/simple-way-to-inverse-transform-normalization/4821
+# utility function to reverse normalization (multiply by standard dev and add back mean)
+def unnormalize(tensor, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    for t, m, s in zip(tensor, mean, std):
+        t.mul_(s).add_(m)
+    return tensor
 
 def main(batch_size=8, num_workers=2):
     # Resize and CenterCrop accepts either PIL Image or Tensor.
@@ -115,21 +121,21 @@ def main(batch_size=8, num_workers=2):
     loader_test = DataLoader(
         data_test, batch_size=batch_size, shuffle=False, num_workers=0, drop_last=True)
 
+    print(data_train[0][0].shape, data_train[0][1].shape)
+    
     figure = plt.figure(figsize=(12, 6))
     cols, rows = 3, 2
     for i in range(1, int((cols * rows)/2 + 1)):
         sample_idx = torch.randint(len(data_train), size=(1,)).item()
-        img, mask, img_path, mask_path = data_train[sample_idx]
-        print(img_path)
-        print(mask_path)
+        img, mask = data_train[sample_idx]
         figure.add_subplot(rows, cols, i)
         plt.title(f"Image {i}")
         plt.axis("off")
-        plt.imshow(img.permute(1, 2, 0))
+        plt.imshow(unnormalize(img).permute(1, 2, 0))
         j = cols + i
         figure.add_subplot(rows, cols, j)
         plt.title(f"Image {i}")
         plt.axis("off")
-        plt.imshow(mask.permute(1, 2, 0))
+        plt.imshow((mask.permute(1, 2, 0)*255))
     plt.show()
     return loader_train, loader_val, loader_test

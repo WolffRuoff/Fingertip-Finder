@@ -2,25 +2,29 @@ import torch
 import numpy as np
 import os
 import gc
-
+import torch.nn as nn
 import evaluator
 
 
 def get_acc(predictions, labels):
+    # labels.shape[0]*labels.shape[1] is height * width, since we are doing pixel-level classification
     return torch.sum(predictions == labels)/(labels.shape[0]*labels.shape[1])
 
 
 def get_recall(predictions, labels):
-    return torch.sum((predictions == labels) * (labels == 1))/torch.sum(labels == 1)
+    # True Positive / all positive
+    return torch.sum((predictions == labels) * (labels == 0))/torch.sum(labels == 0)
 
 
 def get_precision(predictions, labels):
-    return torch.sum((predictions == labels) * (labels == 1))/torch.sum(predictions == 1)
+    # True Positive / preditcted positive
+    return torch.sum((predictions == labels) * (labels == 0))/torch.sum(predictions == 0)
+
 
 # This function is used to train the model
 # Reference: pytorch official tutorial
 # https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
-def train(model, loader_train, loader_val, lr=1e-4, num_epochs=10, device='cpu', patience=5, evaluation_interval=200):
+def train(model, loader_train, loader_val, lr=1e-4, num_epochs=10, device='cpu', patience=5, evaluation_interval=None, pos_weight=None):
     # initialize lists to store logs of the validation loss and validation accuracy
     val_loss_hist = []
     val_acc_hist = []
@@ -29,10 +33,9 @@ def train(model, loader_train, loader_val, lr=1e-4, num_epochs=10, device='cpu',
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # From documentation: This loss combines a Sigmoid layer and the BCELoss in one single class.
-    weight = False
-    if weight:
+    if pos_weight:
         loss_fn = nn.BCEWithLogitsLoss(
-            pos_weight=torch.Tensor(weight).to(device))
+            pos_weight=torch.Tensor(pos_weight).to(device))
     else:
         loss_fn = nn.BCEWithLogitsLoss()
 
@@ -55,13 +58,11 @@ def train(model, loader_train, loader_val, lr=1e-4, num_epochs=10, device='cpu',
 
         # Training pass
         for X_batch, y_batch in loader_train:
-            # combine the batch and tile dimension
-            X_batch = X_batch.reshape(-1,
-                                      X_batch.shape[1], X_batch.shape[3], X_batch.shape[4])
-            # add a dimension to match prediction shape
+            
             # only take the first color channel of mask
-            y_batch = y_batch[:, 0, :, :,
-                              :].reshape(-1, y_batch.shape[-2] * y_batch.shape[-1])
+            y_batch = y_batch[:, 0, :, :]
+            # flatten the mask image
+            y_batch = y_batch.reshape(-1, y_batch.shape[-2] * y_batch.shape[-1])
 
             # torch tensor can be loaded to GPU, when applicable
             X_batch, y_batch = X_batch.float().to(device), y_batch.to(device)
