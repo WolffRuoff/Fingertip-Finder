@@ -1,14 +1,14 @@
 import cv2
 import os
 import numpy as np
-import pandas as pd
+from PIL import Image
 
 
 def go_deeper_folder(dir_list):
     new_dir = []
     for top_folder in dir_list:
         for folder in os.listdir(top_folder):
-            if folder[0] != '.' and 'useless' not in folder:
+            if folder[0] != '.' and 'useless' not in folder and 'zip' not in folder:
                 new_dir.append(top_folder + '/' + folder)
     return new_dir
 
@@ -29,16 +29,24 @@ def extract_frames_and_mask(file_address, video_address, save_location, total_co
     count = 0
     while success:
         # Create mask of the same size and draw bounding box and dot
-        mask = np.zeros((480, 640))
-        mask = cv2.merge([mask, mask, mask])
+        mask = np.zeros(image.shape[:2], dtype='uint8')
         mask = cv2.rectangle(
-            mask, upper_left_bb[count], lower_right_bb[count], (255, 255, 255), -1)
-        mask = cv2.circle(mask, finger_coor[count], 0, (0, 0, 255), -1)
+            mask, upper_left_bb[count], lower_right_bb[count], 255, -1)
+        #mask = cv2.rectangle(
+        #    mask, finger_coor[count], finger_coor[count], 127, 1)
+        mask = cv2.circle(mask, finger_coor[count], 0, 127, -1)
+        mask[mask < 127] = 0.0
+        mask[mask > 127] = 255.0
+        #np.savetxt('test1.txt', mask)
+        #mask[finger_coor[count][1]][finger_coor[count][0]] = 127
+        #mask = cv2.line(mask, finger_coor[count], finger_coor[count], 127, 1)
+        #print(mask)
 
         cv2.imwrite(
             f"{save_location}/color/color_img{str(total_count).zfill(7)}.jpg", image)
-        cv2.imwrite(
-            f"{save_location}/mask/mask_img{str(total_count).zfill(7)}.jpg", mask)
+        Image.fromarray(mask).save(f"{save_location}/mask/mask_img{str(total_count).zfill(7)}.png")
+        #cv2.imwrite(
+        #    f"{save_location}/mask/mask_img{str(total_count).zfill(7)}.jpg", mask)
         success, image = vidcap.read()
 
         count += 1
@@ -63,17 +71,23 @@ def main():
     folders = ['./SCUT/DATA/Fingertip_Calibration']
     for i in range(4):
         folders = go_deeper_folder(folders)
+    folders.sort()
 
     total_count_color = 0
     total_count_depth = 0
     total_count_sample = 0
+    count_printer = 0
+    
     for folder in folders:
         total_count_color = extract_frames_and_mask(
-            folder + '/data.txt', folder + '/sample_color.avi', './SCUT/training_data', total_count_color)
+            folder + '/data.txt', folder + '/sample_color.avi', './training_data', total_count_color)
         total_count_depth = extract_frames(
             folder + '/sample_depth8.avi', './SCUT/training_data/depth8/depth8', total_count_depth)
         total_count_sample = extract_frames(
             folder + '/sample_map.avi', './SCUT/training_data/sample_map/sample_map', total_count_sample)
-        if total_count_color % 500 == 0:
+        if total_count_color > count_printer:
+            count_printer += 1000
             print(f"Created {total_count_color} samples")
+
     print(f"Created {total_count_color} samples")
+main()

@@ -8,6 +8,7 @@ __pycache__/
 
 # Training Data
 training_data/
+SCUT/
 
 # Saved Models
 saved_models/
