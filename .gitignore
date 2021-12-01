@@ -8,6 +8,7 @@ __pycache__/
 
 # Training Data
 training_data/
+training_data.zip
 SCUT/
 
 # Saved Models

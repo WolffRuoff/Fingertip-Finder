@@ -18,23 +18,12 @@ mask_dir = './training_data/mask/'
 data_filenames = sorted(os.listdir(img_dir))
 mask_filenames = sorted(os.listdir(mask_dir))
 img_paths = [img_dir + p for p in data_filenames if '.jpg' in p]
-mask_paths = [mask_dir + p for p in mask_filenames if '.jpg' in p]
+mask_paths = [mask_dir + p for p in mask_filenames if '.png' in p]
 take_idx = np.arange(28000)
 np.random.shuffle(take_idx)
-# take_idx = take_idx[:4000]
-# img_paths = np.take(img_paths, take_idx)
-# mask_paths = np.take(mask_paths, take_idx)
-# img_train, mask_train = img_paths[:3000], mask_paths[:3000]
-# img_val, mask_val = img_paths[3000:3500], mask_paths[3000:3500]
-# img_test, mask_test = img_paths[3500:], mask_paths[3500:]
 
 img_paths = np.take(img_paths, take_idx)
 mask_paths = np.take(mask_paths, take_idx)
-'''
-img = cv.imread(mask_paths[200])
-#img = transforms.ToTensor()
-plt.imshow((img))
-plt.show()'''
 
 img_train, mask_train = img_paths[:25000], mask_paths[:25000]
 img_val, mask_val = img_paths[25000:26500], mask_paths[25000:26500]
@@ -43,7 +32,6 @@ img_test, mask_test = img_paths[26500:], mask_paths[26500:]
 
 class FingerDataset(Dataset):
     def __init__(self, data_paths, mask_paths, img_transform=None, mask_transform=None):
-        data_filenames = os.listdir(img_dir)
         self.data_paths = data_paths
         self.mask_paths = mask_paths
         self.img_transform = img_transform
@@ -58,17 +46,39 @@ class FingerDataset(Dataset):
         img_path = self.data_paths[idx]
         mask_path = self.mask_paths[idx]
         image = Image.open(img_path)
+        image = np.array(image)
 
         mask = Image.open(mask_path)
         mask = np.array(mask)
+
+        # Get the finger coordinate
         obj_ids = np.unique(mask)
-        print(mask_path)
-        print(obj_ids)
+        # obj_ids will be [0, 127, 255]. 0 is the background which we don't want
+        obj_ids = obj_ids[1:]
+
+        # Grab the bounding box for the hand
+        coors = np.where(mask == obj_ids[1])
+        ymin = np.min(coors[0])
+        ymax = np.max(coors[0])
+        xmin = np.min(coors[1])
+        xmax = np.max(coors[1])
+
+        # Crop the image and mask to the bounding box
+        image = image[ymin:ymax, xmin:xmax]
+        mask = mask[ymin:ymax, xmin:xmax]
+
+        # This grabs the coordinate of the fingertip
+        fingertip_coor = np.where(mask == obj_ids[0])
+        fingertip_coor = (fingertip_coor[0].item(), fingertip_coor[1].item())
+
+        #print(mask_path)
+        #print(obj_ids)
         if self.img_transform:
+            image = Image.fromarray(image)
             image = self.img_transform(image)
         if self.mask_transform:
-            mask = self.mask_transform(mask_path)
-        return image, mask
+            mask = self.mask_transform(mask)
+        return image, mask, fingertip_coor
 
 # pre-processing transformations
 # threshold the images with opencv to reduce noise and improve generalization
@@ -115,7 +125,7 @@ def main(batch_size=8, num_workers=2):
     # test data typically should not be augmented
     no_aug_transforms = transforms.Compose((np.array, totensor, normalize))
     # mask also need to be converted to tensor
-    mask_transform = transforms.Compose((cv.imread, totensor))
+    mask_transform = transforms.Compose((np.array, totensor))
 
     data_train = FingerDataset(
         img_train, mask_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
@@ -138,9 +148,9 @@ def main(batch_size=8, num_workers=2):
     cols, rows = 3, 2
     for i in range(1, int((cols * rows)/2 + 1)):
         sample_idx = torch.randint(len(data_train), size=(1,)).item()
-        img, mask = data_train[sample_idx]
+        img, mask, finger_coors = data_train[sample_idx]
         figure.add_subplot(rows, cols, i)
-        np.savetxt('test.txt', mask.reshape(mask.shape[0], -1).numpy())
+
         plt.title(f"Image {i}")
         plt.axis("off")
         plt.imshow(unnormalize(img).permute(1, 2, 0))
@@ -149,7 +159,5 @@ def main(batch_size=8, num_workers=2):
         plt.title(f"Image {i}")
         plt.axis("off")
         plt.imshow((mask.permute(1, 2, 0)*255))
-    #plt.show()
+    plt.show()
     return loader_train, loader_val, loader_test
-
-main()
