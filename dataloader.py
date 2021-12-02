@@ -69,7 +69,7 @@ def dep8_threshold_mask(mask, dep8, threshold_val):
     invert = np.where(threshold==255, 0, 255)
     product = invert * mask
     # combine the color channels
-    product = np.mean(product, axis=-1)
+    product = np.sum(product, axis=-1)
     mask = np.mean(mask, axis=-1)
     # convert to binary labels
     product = np.where(product == 0, 0, 1)
@@ -79,24 +79,27 @@ def dep8_threshold_mask(mask, dep8, threshold_val):
     return invert, product, ratio, mask_size
 
 
-def adaptive_threshold(mask, dep8, init_threshold=100, interval_scale=1, attempts=1):
+def adaptive_threshold(mask, dep8, init_threshold=150, interval_scale=1, attempts=1):
     threshold_val = init_threshold
     invert, product, ratio, mask_size = dep8_threshold_mask(mask, dep8, threshold_val)
-    # scale target ratio by mask size, larger the mask, smaller the ratio should be
+    # optinally can scale target ratio by mask size, larger the mask, smaller the ratio should be
     while ratio == 1:
         threshold_val -= 5*interval_scale
         invert, product, ratio, mask_size = dep8_threshold_mask(mask, dep8, threshold_val)
+    while ratio == 0.9:
+        threshold_val -= 2*interval_scale
+        invert, product, ratio, mask_size = dep8_threshold_mask(mask, dep8, threshold_val)
     # the ratio boundary here with the scalar are tunable hyperparameters:
     # larger -- tend to include more area in the final mask, vice versa for smaller
-    while ratio >= 0.35:
-        threshold_val -= 2*interval_scale
+    while ratio >= 0.40:
+        threshold_val -= 1*interval_scale
         invert, product, ratio, mask_size = dep8_threshold_mask(mask, dep8, threshold_val)
     # the ratio boundary here with the scalar are tunable hyperparameters
     # if the ratio is below this threshold, restart with larger init threshold and smaller step size
     # increase to reduce cases where the final mask is too small or predominantly background area 
-    if ratio < 0.20 and attempts < 4:
+    if ratio < 0.15 and attempts < 2:
         invert, product, ratio, threshold_val = adaptive_threshold(mask, dep8, 200, interval_scale*0.5, attempts+1)
-#     print('ratio:', ratio, 'mask_size:', mask_size, 'attempt #', attempts)
+    print('ratio:', ratio, 'mask_size:', mask_size, 'attempt #', attempts)
     return invert, product, ratio, threshold_val
 
 
@@ -136,8 +139,6 @@ class FingerDataset(Dataset):
         # necessary if using transformations like rotation, flipping or cropping
         # in which case need to apply to both image and mask
         self.mask_transform = mask_transform
-        # initial value for mask thresholding
-        self.threshold_val = 100
         
         data_dir = '/'.join(img_dir.rstrip('/').split('/')[:-1])
         self.dep8_mask_dir = data_dir + '/dep8_mask'
@@ -162,7 +163,6 @@ class FingerDataset(Dataset):
                 product = Image.open(self.dep8_mask_dir + '/' + dep8_path.split('/')[-1])
                 product = np.asarray(product)
                 product = np.mean(product, axis=-1)
-                # saving as jpeg introduced noise to the mask, thesholding here restore it to binary mask
                 product = np.where(product>80, 1, 0)
                 if self.mask_transform:
                     product = self.mask_transform(product)
@@ -170,16 +170,19 @@ class FingerDataset(Dataset):
             except UnidentifiedImageError:
                 os.remove(self.dep8_mask_dir + '/' + dep8_path.split('/')[-1])
             
-        mask, dep8 = cv.imread(mask_path, 255), cv.imread(dep8_path, 255)
+        mask = np.asarray(Image.open(mask_path))
+        dep8 = np.asarray(Image.open(dep8_path))
+        
+#         mask, dep8 = cv.imread(mask_path, 255), cv.imread(dep8_path, 255)
         # element-wise product of mask and thresholded dep8 mapping, should have only the hand portion in the mask
-        invert, product, ratio, self.threshold_val = adaptive_threshold(mask, dep8, init_threshold=self.threshold_val)
+        invert, product, ratio, self.threshold_val = adaptive_threshold(mask, dep8)
         # the adaptive threshold processing is computationally costly, save results for future epochs
         imsave(self.dep8_mask_dir + '/' + dep8_path.split('/')[-1], product)
         if self.mask_transform:
             product = self.mask_transform(product)
         return image, product    
 
-def main(batch_size=8, num_workers=2, resize_enabled=True):
+def main(batch_size=8, num_workers=2, resize_enabled=False):
     totensor = transforms.ToTensor()
     # smaller edge of the image will be matched to 224
     resize = transforms.Resize(224)
