@@ -21,7 +21,7 @@ mask_filenames = sorted(os.listdir(mask_dir))
 dep8_filenames = sorted(os.listdir(dep8_dir))
 
 img_paths = [img_dir + p for p in data_filenames if '.jpg' in p]
-mask_paths = [mask_dir + p for p in mask_filenames if '.jpg' in p]
+mask_paths = [mask_dir + p for p in mask_filenames if '.png' in p]
 dep8_paths = [dep8_dir + p for p in dep8_filenames if '.jpg' in p]
 
 take_idx = np.arange(28000)
@@ -164,6 +164,7 @@ class FingerDataset(Dataset):
                 product = np.asarray(product)
                 product = np.mean(product, axis=-1)
                 product = np.where(product>80, 1, 0)
+                print(product)
                 if self.mask_transform:
                     product = self.mask_transform(product)
                 return image, product
@@ -249,5 +250,6 @@ def main(batch_size=8, num_workers=2, resize_enabled=False):
         plt.title(f"Label {i}")
         plt.axis("off")
         plt.imshow((mask.permute(1, 2, 0)*255))
-    plt.show()
+    #plt.show()
     return loader_train, loader_val, loader_test
+main()
