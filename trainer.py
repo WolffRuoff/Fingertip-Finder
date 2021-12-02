@@ -13,12 +13,12 @@ def get_acc(predictions, labels):
 
 def get_recall(predictions, labels):
     # True Positive / all positive
-    return torch.sum((predictions == labels) * (labels == 0))/torch.sum(labels == 0)
+    return torch.sum((predictions == labels) * (labels == 1))/torch.sum(labels == 1)
 
 
 def get_precision(predictions, labels):
     # True Positive / preditcted positive
-    return torch.sum((predictions == labels) * (labels == 0))/torch.sum(predictions == 0)
+    return torch.sum((predictions == labels) * (labels == 1))/torch.sum(predictions == 1)
 
 
 # This function is used to train the model

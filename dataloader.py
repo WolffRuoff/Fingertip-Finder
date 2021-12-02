@@ -2,11 +2,11 @@ import torch
 import numpy as np
 import os
 import cv2 as cv
-import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 from matplotlib import pyplot as plt
-from PIL import Image
+from matplotlib.image import imsave
+from PIL import Image, UnidentifiedImageError
 
 # create dataset and split into training, validation, and test sets
 
@@ -14,50 +14,33 @@ from PIL import Image
 # please modify as needed to match the folder structure
 img_dir = '../training_data/color/'
 mask_dir = '../training_data/mask/'
+dep8_dir = '../training_data/depth8/'
 
 data_filenames = sorted(os.listdir(img_dir))
 mask_filenames = sorted(os.listdir(mask_dir))
+dep8_filenames = sorted(os.listdir(dep8_dir))
+
 img_paths = [img_dir + p for p in data_filenames if '.jpg' in p]
 mask_paths = [mask_dir + p for p in mask_filenames if '.jpg' in p]
+dep8_paths = [dep8_dir + p for p in dep8_filenames if '.jpg' in p]
+
 take_idx = np.arange(28000)
 np.random.shuffle(take_idx)
-# take_idx = take_idx[:4000]
+
+# take_idx = take_idx[:700]
 # img_paths = np.take(img_paths, take_idx)
 # mask_paths = np.take(mask_paths, take_idx)
-# img_train, mask_train = img_paths[:3000], mask_paths[:3000]
-# img_val, mask_val = img_paths[3000:3500], mask_paths[3000:3500]
-# img_test, mask_test = img_paths[3500:], mask_paths[3500:]
+# dep8_paths = np.take(dep8_paths, take_idx)
+# img_train, mask_train, dep8_train = img_paths[:500], mask_paths[:500], dep8_paths[:500]
+# img_val, mask_val, dep8_val = img_paths[500:600], mask_paths[500:600], dep8_paths[500:600]
+# img_test, mask_test, dep8_test = img_paths[600:], mask_paths[600:], dep8_paths[600:]
 
 img_paths = np.take(img_paths, take_idx)
 mask_paths = np.take(mask_paths, take_idx)
-img_train, mask_train = img_paths[:25000], mask_paths[:25000]
-img_val, mask_val = img_paths[25000:26500], mask_paths[25000:26500]
-img_test, mask_test = img_paths[26500:], mask_paths[26500:]
-
-
-class FingerDataset(Dataset):
-    def __init__(self, data_paths, mask_paths, img_transform=None, mask_transform=None):
-        data_filenames = os.listdir(img_dir)
-        self.data_paths = data_paths
-        self.mask_paths = mask_paths
-        self.img_transform = img_transform
-        # necessary if using transformations like rotation, flipping or cropping
-        # in which case need to apply to both image and mask
-        self.mask_transform = mask_transform
-
-    def __len__(self):
-        return len(self.mask_paths)
-
-    def __getitem__(self, idx):
-        img_path = self.data_paths[idx]
-        mask_path = self.mask_paths[idx]
-        image = Image.open(img_path)
-        #mask = Image.open(mask_path)
-        if self.img_transform:
-            image = self.img_transform(image)
-        if self.mask_transform:
-            mask = self.mask_transform(mask_path)
-        return image, mask
+dep8_paths = np.take(dep8_paths, take_idx)
+img_train, mask_train, dep8_train = img_paths[:25000], mask_paths[:25000], dep8_paths[:25000]
+img_val, mask_val, dep8_val = img_paths[25000:26500], mask_paths[25000:26500], dep8_paths[25000:26500]
+img_test, mask_test, dep8_test = img_paths[26500:], mask_paths[26500:], dep8_paths[26500:]
 
 # pre-processing transformations
 # threshold the images with opencv to reduce noise and improve generalization
@@ -78,15 +61,130 @@ def unnormalize(tensor, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
         t.mul_(s).add_(m)
     return tensor
 
-def main(batch_size=8, num_workers=2):
-    # Resize and CenterCrop accepts either PIL Image or Tensor.
-    # Previous attempts to normalize tensor from torchvision.io.read_image yielded incorrect outputs
-    # Use Pillow to read PIL image then convert to tensor worked well
+def dep8_threshold_mask(mask, dep8, threshold_val):
+    # remove the far background before thesholding
+    dep8 = np.where(dep8==0, 255, dep8)
+    threshold = cv.threshold(dep8, threshold_val, 255, cv.THRESH_BINARY)[1]
+    # thresholding eliminate 
+    invert = np.where(threshold==255, 0, 255)
+    product = invert * mask
+    # combine the color channels
+    product = np.mean(product, axis=-1)
+    mask = np.mean(mask, axis=-1)
+    # convert to binary labels
+    product = np.where(product == 0, 0, 1)
+    mask_size = len(np.nonzero(mask)[0]) + len(np.nonzero(mask)[1])
+    product_size = len(np.nonzero(product)[0]) + len(np.nonzero(product)[1])
+    ratio = product_size/mask_size
+    return invert, product, ratio, mask_size
+
+
+def adaptive_threshold(mask, dep8, init_threshold=100, interval_scale=1, attempts=1):
+    threshold_val = init_threshold
+    invert, product, ratio, mask_size = dep8_threshold_mask(mask, dep8, threshold_val)
+    # scale target ratio by mask size, larger the mask, smaller the ratio should be
+    while ratio == 1:
+        threshold_val -= 5*interval_scale
+        invert, product, ratio, mask_size = dep8_threshold_mask(mask, dep8, threshold_val)
+    # the ratio boundary here with the scalar are tunable hyperparameters:
+    # larger -- tend to include more area in the final mask, vice versa for smaller
+    while ratio >= 0.35:
+        threshold_val -= 2*interval_scale
+        invert, product, ratio, mask_size = dep8_threshold_mask(mask, dep8, threshold_val)
+    # the ratio boundary here with the scalar are tunable hyperparameters
+    # if the ratio is below this threshold, restart with larger init threshold and smaller step size
+    # increase to reduce cases where the final mask is too small or predominantly background area 
+    if ratio < 0.20 and attempts < 4:
+        invert, product, ratio, threshold_val = adaptive_threshold(mask, dep8, 200, interval_scale*0.5, attempts+1)
+#     print('ratio:', ratio, 'mask_size:', mask_size, 'attempt #', attempts)
+    return invert, product, ratio, threshold_val
+
+
+# USE THIS AS DATASET IF NOT USING DEP8 (BOUNDING BOX ONLY)
+class FingerDataset(Dataset):
+    def __init__(self, data_paths, mask_paths, dep8_paths=None, img_transform=None, mask_transform=None):
+        data_filenames = os.listdir(img_dir)
+        self.data_paths = data_paths
+        self.mask_paths = mask_paths
+        self.img_transform = img_transform
+        # necessary if using transformations like rotation, flipping or cropping
+        # in which case need to apply to both image and mask
+        self.mask_transform = mask_transform
+
+    def __len__(self):
+        return len(self.mask_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.data_paths[idx]
+        mask_path = self.mask_paths[idx]
+
+        image, mask = Image.open(img_path), Image.open(mask_path)
+        if self.img_transform:
+            image = self.img_transform(image)
+        if self.mask_transform:
+            mask = self.mask_transform(mask)   
+        return image, mask    
+
+# USE THIS AS DATASET IN MAIN IF USING DEP8 FOR MASK GENERATION
+class FingerDataset(Dataset):
+    def __init__(self, data_paths, mask_paths, dep8_paths, img_transform=None, mask_transform=None):
+        data_filenames = os.listdir(img_dir)
+        self.data_paths = data_paths
+        self.mask_paths = mask_paths
+        self.dep8_paths = dep8_paths
+        self.img_transform = img_transform
+        # necessary if using transformations like rotation, flipping or cropping
+        # in which case need to apply to both image and mask
+        self.mask_transform = mask_transform
+        # initial value for mask thresholding
+        self.threshold_val = 100
+        
+        data_dir = '/'.join(img_dir.rstrip('/').split('/')[:-1])
+        self.dep8_mask_dir = data_dir + '/dep8_mask'
+        if 'dep8_mask' not in os.listdir(data_dir):
+            os.mkdir(self.dep8_mask_dir)
+
+    def __len__(self):
+        return len(self.mask_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.data_paths[idx]
+        mask_path = self.mask_paths[idx]
+        dep8_path = self.dep8_paths[idx]
+        
+        image = Image.open(img_path)
+        if self.img_transform:
+            image = self.img_transform(image)
+           
+        # if processed dep8 mask already exist, load from file
+        if dep8_path.split('/')[-1] in os.listdir(self.dep8_mask_dir):
+            try:
+                product = Image.open(self.dep8_mask_dir + '/' + dep8_path.split('/')[-1])
+                product = np.asarray(product)
+                product = np.mean(product, axis=-1)
+                # saving as jpeg introduced noise to the mask, thesholding here restore it to binary mask
+                product = np.where(product>80, 1, 0)
+                if self.mask_transform:
+                    product = self.mask_transform(product)
+                return image, product
+            except UnidentifiedImageError:
+                os.remove(self.dep8_mask_dir + '/' + dep8_path.split('/')[-1])
+            
+        mask, dep8 = cv.imread(mask_path, 255), cv.imread(dep8_path, 255)
+        # element-wise product of mask and thresholded dep8 mapping, should have only the hand portion in the mask
+        invert, product, ratio, self.threshold_val = adaptive_threshold(mask, dep8, init_threshold=self.threshold_val)
+        # the adaptive threshold processing is computationally costly, save results for future epochs
+        imsave(self.dep8_mask_dir + '/' + dep8_path.split('/')[-1], product)
+        if self.mask_transform:
+            product = self.mask_transform(product)
+        return image, product    
+
+def main(batch_size=8, num_workers=2, resize_enabled=True):
     totensor = transforms.ToTensor()
-    # # smaller edge of the image will be matched to 224
-    # resize = transforms.Resize(224)
-    # # center square crop of (250, 250)
-    # crop = transforms.CenterCrop(250)
+    # smaller edge of the image will be matched to 224
+    resize = transforms.Resize(224)
+    # center square crop of (250, 250)
+    crop = transforms.CenterCrop(250)
     # To use pretrained models, input must be normalized as follows (pytorch models documentation):
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -98,20 +196,30 @@ def main(batch_size=8, num_workers=2):
     # randomly changes the brightness, saturation, and other properties of an image
     jitter = transforms.ColorJitter(brightness=.4, hue=.2)
 
-    # compose the pre-processing and augmentation transforms
-    composed_aug_transforms = transforms.Compose(
-        (grayscale, jitter, np.array, totensor, normalize))
-    # test data typically should not be augmented
-    no_aug_transforms = transforms.Compose((np.array, totensor, normalize))
-    # mask also need to be converted to tensor
-    mask_transform = transforms.Compose((threshold_mask, totensor))
+    if resize_enabled:
+        # compose the pre-processing and augmentation transforms
+        composed_aug_transforms = transforms.Compose(
+            (resize, crop, grayscale, jitter, np.array, totensor, normalize))
+        # test data typically should not be augmented
+        no_aug_transforms = transforms.Compose((resize, crop, np.array, totensor, normalize))
+        # mask also need to be converted to tensor
+        mask_transform = transforms.Compose((totensor, resize, crop))
+    
+    else:
+        # compose the pre-processing and augmentation transforms
+        composed_aug_transforms = transforms.Compose(
+            (grayscale, jitter, np.array, totensor, normalize))
+        # test data typically should not be augmented
+        no_aug_transforms = transforms.Compose((np.array, totensor, normalize))
+        # mask also need to be converted to tensor
+        mask_transform = totensor
 
     data_train = FingerDataset(
-        img_train, mask_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
+        img_train, mask_train, dep8_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
     data_val = FingerDataset(
-        img_val, mask_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
+        img_val, mask_val, dep8_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
     data_test = FingerDataset(
-        img_test, mask_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
+        img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
 
     # initialize dataloaders for the dataset
     loader_train = DataLoader(data_train, batch_size=batch_size, shuffle=True,
@@ -123,18 +231,19 @@ def main(batch_size=8, num_workers=2):
 
     print(data_train[0][0].shape, data_train[0][1].shape)
     
-    figure = plt.figure(figsize=(12, 6))
-    cols, rows = 3, 2
+    figure = plt.figure(figsize=(30, 10))
+    cols, rows = 5, 2
     for i in range(1, int((cols * rows)/2 + 1)):
-        sample_idx = torch.randint(len(data_train), size=(1,)).item()
-        img, mask = data_train[sample_idx]
+        img, mask = next(iter(loader_val))
+        sample_idx = torch.randint(img.shape[0], size=(1,)).item()
+        img, mask = img[sample_idx], mask[sample_idx]
         figure.add_subplot(rows, cols, i)
         plt.title(f"Image {i}")
         plt.axis("off")
         plt.imshow(unnormalize(img).permute(1, 2, 0))
         j = cols + i
         figure.add_subplot(rows, cols, j)
-        plt.title(f"Image {i}")
+        plt.title(f"Label {i}")
         plt.axis("off")
         plt.imshow((mask.permute(1, 2, 0)*255))
     plt.show()
