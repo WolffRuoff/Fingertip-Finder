@@ -64,7 +64,6 @@ def unnormalize(tensor, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
 def dep8_threshold_mask(mask, dep8, threshold_val):
     # remove the far background before thesholding
     dep8 = np.where(dep8==0, 255, dep8)
-    mask = np.stack((mask,)*3, axis=-1)
     threshold = cv.threshold(dep8, threshold_val, 255, cv.THRESH_BINARY)[1]
     # thresholding eliminate 
     invert = np.where(threshold==255, 0, 255)
@@ -100,7 +99,7 @@ def adaptive_threshold(mask, dep8, init_threshold=150, interval_scale=1, attempt
     # increase to reduce cases where the final mask is too small or predominantly background area 
     if ratio < 0.15 and attempts < 2:
         invert, product, ratio, threshold_val = adaptive_threshold(mask, dep8, 200, interval_scale*0.5, attempts+1)
-    #print('ratio:', ratio, 'mask_size:', mask_size, 'attempt #', attempts)
+    print('ratio:', ratio, 'mask_size:', mask_size, 'attempt #', attempts)
     return invert, product, ratio, threshold_val
 
 
@@ -175,7 +174,7 @@ class FingerDataset(Dataset):
         mask = np.asarray(Image.open(mask_path))
         dep8 = np.asarray(Image.open(dep8_path))
         
-#         mask, dep8 = cv.imread(mask_path, 255), cv.imread(dep8_path, 255)
+        # mask, dep8 = cv.imread(mask_path, 255), cv.imread(dep8_path, 255)
         # element-wise product of mask and thresholded dep8 mapping, should have only the hand portion in the mask
         invert, product, ratio, self.threshold_val = adaptive_threshold(mask, dep8)
         # the adaptive threshold processing is computationally costly, save results for future epochs
