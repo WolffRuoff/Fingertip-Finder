@@ -12,9 +12,9 @@ from PIL import Image, UnidentifiedImageError
 
 # img_dir is the directory where the images are located
 # please modify as needed to match the folder structure
-img_dir = '../training_data/color/'
-mask_dir = '../training_data/mask/'
-dep8_dir = '../training_data/depth8/'
+img_dir = './training_data/color/'
+mask_dir = './training_data/mask/'
+dep8_dir = './training_data/depth8/'
 
 data_filenames = sorted(os.listdir(img_dir))
 mask_filenames = sorted(os.listdir(mask_dir))
@@ -64,6 +64,7 @@ def unnormalize(tensor, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
 def dep8_threshold_mask(mask, dep8, threshold_val):
     # remove the far background before thesholding
     dep8 = np.where(dep8==0, 255, dep8)
+    mask = np.stack((mask,)*3, axis=-1)
     threshold = cv.threshold(dep8, threshold_val, 255, cv.THRESH_BINARY)[1]
     # thresholding eliminate 
     invert = np.where(threshold==255, 0, 255)
@@ -99,7 +100,7 @@ def adaptive_threshold(mask, dep8, init_threshold=150, interval_scale=1, attempt
     # increase to reduce cases where the final mask is too small or predominantly background area 
     if ratio < 0.15 and attempts < 2:
         invert, product, ratio, threshold_val = adaptive_threshold(mask, dep8, 200, interval_scale*0.5, attempts+1)
-    print('ratio:', ratio, 'mask_size:', mask_size, 'attempt #', attempts)
+    #print('ratio:', ratio, 'mask_size:', mask_size, 'attempt #', attempts)
     return invert, product, ratio, threshold_val
 
 
@@ -164,7 +165,7 @@ class FingerDataset(Dataset):
                 product = np.asarray(product)
                 product = np.mean(product, axis=-1)
                 product = np.where(product>80, 1, 0)
-                print(product)
+
                 if self.mask_transform:
                     product = self.mask_transform(product)
                 return image, product
@@ -250,6 +251,5 @@ def main(batch_size=8, num_workers=2, resize_enabled=False):
         plt.title(f"Label {i}")
         plt.axis("off")
         plt.imshow((mask.permute(1, 2, 0)*255))
-    #plt.show()
+    plt.show()
     return loader_train, loader_val, loader_test
-main()
