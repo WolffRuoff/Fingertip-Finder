@@ -65,6 +65,7 @@ def dep8_threshold_mask(mask, dep8, threshold_val):
     # remove the far background before thesholding
     dep8 = np.where(dep8==0, 255, dep8)
     threshold = cv.threshold(dep8, threshold_val, 255, cv.THRESH_BINARY)[1]
+    mask = np.stack((mask,)*3, axis=-1)
     # thresholding eliminate 
     invert = np.where(threshold==255, 0, 255)
     product = invert * mask
@@ -252,3 +253,4 @@ def main(batch_size=8, num_workers=2, resize_enabled=False):
         plt.imshow((mask.permute(1, 2, 0)*255))
     plt.show()
     return loader_train, loader_val, loader_test
+main()
