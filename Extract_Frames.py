@@ -8,7 +8,7 @@ def go_deeper_folder(dir_list):
     new_dir = []
     for top_folder in dir_list:
         for folder in os.listdir(top_folder):
-            if folder[0] != '.' and 'useless' not in folder and 'zip' not in folder:
+            if folder[0] != '.' and 'HOLD' not in folder and 'zip' not in folder:
                 new_dir.append(top_folder + '/' + folder)
     return new_dir
 
@@ -68,26 +68,31 @@ def extract_frames(video_address, save_location, total_count):
 
 
 def main():
-    folders = ['./SCUT/DATA/Fingertip_Calibration']
+    # Change this line to be where you stored the SCUT folder
+    scut_location = '/Users/ethanruoff/Downloads'
+    folders = [scut_location + '/SCUT/DATA/Fingertip_Calibration']
     for i in range(4):
         folders = go_deeper_folder(folders)
     folders.sort()
 
-    total_count_color = 0
-    total_count_depth = 0
-    total_count_sample = 0
-    count_printer = 0
+    # Change start count to resume from where you left off if you had to stop it early
+    start_count = 0
+
+    total_count_color = start_count
+    total_count_depth = start_count
+    total_count_sample = start_count
+    count_printer = start_count
     
-    for folder in folders:
+    for i in range(len(folders)):
         total_count_color = extract_frames_and_mask(
-            folder + '/data.txt', folder + '/sample_color.avi', './training_data', total_count_color)
+            folders[i] + '/data.txt', folders[i] + '/sample_color.avi', './training_data', total_count_color)
         total_count_depth = extract_frames(
-            folder + '/sample_depth8.avi', './SCUT/training_data/depth8/depth8', total_count_depth)
+            folders[i] + '/sample_depth8.avi', './training_data/depth8/depth8', total_count_depth)
         total_count_sample = extract_frames(
-            folder + '/sample_map.avi', './SCUT/training_data/sample_map/sample_map', total_count_sample)
+            folders[i] + '/sample_map.avi', './training_data/sample_map/sample_map', total_count_sample)
         if total_count_color > count_printer:
             count_printer += 1000
-            print(f"Created {total_count_color} samples")
+            print(f"Created {total_count_color} samples up to {i} folders")
 
     print(f"Created {total_count_color} samples")
 main()
