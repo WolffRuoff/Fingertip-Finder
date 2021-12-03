@@ -253,4 +253,3 @@ def main(batch_size=8, num_workers=2, resize_enabled=False):
         plt.imshow((mask.permute(1, 2, 0)*255))
     plt.show()
     return loader_train, loader_val, loader_test
-main()
