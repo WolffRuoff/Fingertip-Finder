@@ -100,10 +100,29 @@ def adaptive_threshold(mask, dep8, init_threshold=150, interval_scale=1, attempt
     # increase to reduce cases where the final mask is too small or predominantly background area 
     if ratio < 0.15 and attempts < 2:
         invert, product, ratio, threshold_val = adaptive_threshold(mask, dep8, 200, interval_scale*0.5, attempts+1)
-    print('ratio:', ratio, 'mask_size:', mask_size, 'attempt #', attempts)
+    #print('ratio:', ratio, 'mask_size:', mask_size, 'attempt #', attempts)
+
     return invert, product, ratio, threshold_val
 
+def get_convex_hull(product):
+    # Convert product to cv2 array so that we can use opencv methods
+    #product = Image.fromarray(product.astype(np.uint8))
+    product = (product * 255).astype(np.uint8)
+    #product = cv.cvtColor(product, cv.COLOR_RGB2GRAY)
+    ret, thresh = cv.threshold(product, 1, 255, cv.THRESH_BINARY)
+    cnts = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)[-2]
 
+    hull = []
+    # Combine all the contours and calculate the convex hull
+    chull = cv.convexHull(np.vstack(cnts[i] for i in range(len(cnts))), False)
+    hull.append(chull)
+
+    # Draw it onto the thresh
+    cv.drawContours(thresh, hull, -1, (255,255,255), thickness=cv.FILLED)
+    thresh = np.array(thresh, dtype=np.integer)
+    return thresh
+
+'''
 # USE THIS AS DATASET IF NOT USING DEP8 (BOUNDING BOX ONLY)
 class FingerDataset(Dataset):
     def __init__(self, data_paths, mask_paths, dep8_paths=None, img_transform=None, mask_transform=None):
@@ -128,6 +147,7 @@ class FingerDataset(Dataset):
         if self.mask_transform:
             mask = self.mask_transform(mask)   
         return image, mask    
+'''
 
 # USE THIS AS DATASET IN MAIN IF USING DEP8 FOR MASK GENERATION
 class FingerDataset(Dataset):
@@ -178,6 +198,10 @@ class FingerDataset(Dataset):
         # mask, dep8 = cv.imread(mask_path, 255), cv.imread(dep8_path, 255)
         # element-wise product of mask and thresholded dep8 mapping, should have only the hand portion in the mask
         invert, product, ratio, self.threshold_val = adaptive_threshold(mask, dep8)
+
+        # Get the convex hull of the product mask
+        product = get_convex_hull(product)
+
         # the adaptive threshold processing is computationally costly, save results for future epochs
         imsave(self.dep8_mask_dir + '/' + dep8_path.split('/')[-1], product)
         if self.mask_transform:
@@ -217,7 +241,7 @@ def main(batch_size=8, num_workers=2, resize_enabled=False):
         # test data typically should not be augmented
         no_aug_transforms = transforms.Compose((np.array, totensor, normalize))
         # mask also need to be converted to tensor
-        mask_transform = totensor
+        mask_transform = transforms.Compose((np.array, totensor))
 
     data_train = FingerDataset(
         img_train, mask_train, dep8_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
@@ -253,4 +277,3 @@ def main(batch_size=8, num_workers=2, resize_enabled=False):
         plt.imshow((mask.permute(1, 2, 0)*255))
     plt.show()
     return loader_train, loader_val, loader_test
-main()
