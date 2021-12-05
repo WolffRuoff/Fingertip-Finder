@@ -122,7 +122,6 @@ def get_convex_hull(product):
     thresh = np.array(thresh, dtype=np.integer)
     return thresh
 
-'''
 # USE THIS AS DATASET IF NOT USING DEP8 (BOUNDING BOX ONLY)
 class FingerDataset(Dataset):
     def __init__(self, data_paths, mask_paths, dep8_paths=None, img_transform=None, mask_transform=None):
@@ -147,7 +146,6 @@ class FingerDataset(Dataset):
         if self.mask_transform:
             mask = self.mask_transform(mask)   
         return image, mask    
-'''
 
 # USE THIS AS DATASET IN MAIN IF USING DEP8 FOR MASK GENERATION
 class FingerDataset_dep8(Dataset):
@@ -251,11 +249,11 @@ def main(batch_size=8, num_workers=2, resize_enabled=False, use_dep8=True):
         data_test = FingerDataset_dep8(
             img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
     else:
-        data_train = FingerDataset(
+        data_train = FingerDataset_dep8(
             img_train, mask_train, dep8_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
-        data_val = FingerDataset(
+        data_val = FingerDataset_dep8(
             img_val, mask_val, dep8_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
-        data_test = FingerDataset(
+        data_test = FingerDataset_dep8(
             img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
 
     # initialize dataloaders for the dataset
