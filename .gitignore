@@ -12,6 +12,9 @@ training_data-1/
 training_data.zip
 SCUT/
 
+# Temp models
+epoch_*
+
 # Saved Models
 saved_models/
 

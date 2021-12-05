@@ -71,15 +71,15 @@ class FingerDataset(Dataset):
         mask[mask==obj_ids[1]] = 0
         mask[mask==obj_ids[0]] = 255
         # This grabs the coordinate of the fingertip from the cropped mask
-        fingertip_coor = np.where(mask == 255)
-        fingertip_coor = (fingertip_coor[0].item(), fingertip_coor[1].item())
+        # fingertip_coor = np.where(mask == 255)
+        # fingertip_coor = (fingertip_coor[0].item(), fingertip_coor[1].item())
 
         # Add padding to the right or bottom of the image to make it a square
         larger_dim = np.max(mask.shape)
         padded_image = np.zeros((larger_dim, larger_dim, 3), dtype=np.uint8)
         padded_image[0:image.shape[0], 0:image.shape[1], :] = image
         # Make the padding on the mask a 1 value so that it can easily be removed later
-        padded_mask = np.ones((larger_dim, larger_dim))
+        padded_mask = np.zeros((larger_dim, larger_dim))
         padded_mask[0:mask.shape[0], 0:mask.shape[1]] = mask 
 
         if self.img_transform:
@@ -88,7 +88,7 @@ class FingerDataset(Dataset):
         if self.mask_transform:
             mask = Image.fromarray(padded_mask)
             mask = self.mask_transform(mask)
-        return image, mask, fingertip_coor
+        return image, mask.type(torch.int32)
 
 # pre-processing transformations
 # threshold the images with opencv to reduce noise and improve generalization
@@ -103,7 +103,7 @@ def threshold_mask(img):
     return threshed
 
 def array_threshold(img):
-    img[img > 1] = 255
+    img[img > 0] = 1
     return img
 
 # Reference: https://discuss.pytorch.org/t/simple-way-to-inverse-transform-normalization/4821
@@ -162,7 +162,7 @@ def main(batch_size=8, num_workers=2):
     cols, rows = 3, 2
     for i in range(1, int((cols * rows)/2 + 1)):
         sample_idx = torch.randint(len(data_train), size=(1,)).item()
-        img, mask, finger_coors = data_train[sample_idx]
+        img, mask = data_train[sample_idx]
         figure.add_subplot(rows, cols, i)
         #print(f"Image shape {img.shape}, Mask shape {mask.shape}")
         plt.title(f"Image {i}")
@@ -175,5 +175,3 @@ def main(batch_size=8, num_workers=2):
         plt.imshow((mask.permute(1, 2, 0)*255))
     plt.show()
     return loader_train, loader_val, loader_test
-
-main()
