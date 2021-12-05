@@ -150,7 +150,7 @@ class FingerDataset(Dataset):
 '''
 
 # USE THIS AS DATASET IN MAIN IF USING DEP8 FOR MASK GENERATION
-class FingerDataset(Dataset):
+class FingerDataset_dep8(Dataset):
     def __init__(self, data_paths, mask_paths, dep8_paths, img_transform=None, mask_transform=None):
         data_filenames = os.listdir(img_dir)
         self.data_paths = data_paths
@@ -208,7 +208,7 @@ class FingerDataset(Dataset):
             product = self.mask_transform(product)
         return image, product    
 
-def main(batch_size=8, num_workers=2, resize_enabled=False):
+def main(batch_size=8, num_workers=2, resize_enabled=False, use_dep8=True):
     totensor = transforms.ToTensor()
     # smaller edge of the image will be matched to 224
     resize = transforms.Resize(224)
@@ -243,12 +243,20 @@ def main(batch_size=8, num_workers=2, resize_enabled=False):
         # mask also need to be converted to tensor
         mask_transform = transforms.Compose((np.array, totensor))
 
-    data_train = FingerDataset(
-        img_train, mask_train, dep8_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
-    data_val = FingerDataset(
-        img_val, mask_val, dep8_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
-    data_test = FingerDataset(
-        img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
+    if use_dep8:
+        data_train = FingerDataset_dep8(
+            img_train, mask_train, dep8_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
+        data_val = FingerDataset_dep8(
+            img_val, mask_val, dep8_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
+        data_test = FingerDataset_dep8(
+            img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
+    else:
+        data_train = FingerDataset(
+            img_train, mask_train, dep8_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
+        data_val = FingerDataset(
+            img_val, mask_val, dep8_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
+        data_test = FingerDataset(
+            img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
 
     # initialize dataloaders for the dataset
     loader_train = DataLoader(data_train, batch_size=batch_size, shuffle=True,
@@ -262,10 +270,9 @@ def main(batch_size=8, num_workers=2, resize_enabled=False):
     
     figure = plt.figure(figsize=(30, 10))
     cols, rows = 5, 2
+    img_batch, mask_batch = next(iter(loader_val))
     for i in range(1, int((cols * rows)/2 + 1)):
-        img, mask = next(iter(loader_val))
-        sample_idx = torch.randint(img.shape[0], size=(1,)).item()
-        img, mask = img[sample_idx], mask[sample_idx]
+        img, mask = img_batch[i], mask_batch[i]
         figure.add_subplot(rows, cols, i)
         plt.title(f"Image {i}")
         plt.axis("off")
