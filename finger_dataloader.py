@@ -51,7 +51,7 @@ class FingerDataset(Dataset):
         mask = Image.open(mask_path)
         mask = np.array(mask)
 
-        # Get the finger coordinate
+        # Get the value for the mask
         obj_ids = np.unique(mask)
         # obj_ids will be [0, 127, 255]. 0 is the background which we don't want
         obj_ids = obj_ids[1:]
@@ -67,16 +67,26 @@ class FingerDataset(Dataset):
         image = image[ymin:ymax, xmin:xmax]
         mask = mask[ymin:ymax, xmin:xmax]
 
-        # This grabs the coordinate of the fingertip
-        fingertip_coor = np.where(mask == obj_ids[0])
+        # Make the 255's 0 now and the coordinate 255 to be consistent with our training method
+        mask[mask==obj_ids[1]] = 0
+        mask[mask==obj_ids[0]] = 255
+        # This grabs the coordinate of the fingertip from the cropped mask
+        fingertip_coor = np.where(mask == 255)
         fingertip_coor = (fingertip_coor[0].item(), fingertip_coor[1].item())
 
-        #print(mask_path)
-        #print(obj_ids)
+        # Add padding to the right or bottom of the image to make it a square
+        larger_dim = np.max(mask.shape)
+        padded_image = np.zeros((larger_dim, larger_dim, 3), dtype=np.uint8)
+        padded_image[0:image.shape[0], 0:image.shape[1], :] = image
+        # Make the padding on the mask a 1 value so that it can easily be removed later
+        padded_mask = np.ones((larger_dim, larger_dim))
+        padded_mask[0:mask.shape[0], 0:mask.shape[1]] = mask 
+
         if self.img_transform:
-            image = Image.fromarray(image)
+            image = Image.fromarray(padded_image)
             image = self.img_transform(image)
         if self.mask_transform:
+            mask = Image.fromarray(padded_mask)
             mask = self.mask_transform(mask)
         return image, mask, fingertip_coor
 
@@ -92,6 +102,10 @@ def threshold_mask(img):
         pic, 1, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU)
     return threshed
 
+def array_threshold(img):
+    img[img > 1] = 255
+    return img
+
 # Reference: https://discuss.pytorch.org/t/simple-way-to-inverse-transform-normalization/4821
 # utility function to reverse normalization (multiply by standard dev and add back mean)
 def unnormalize(tensor, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
@@ -104,8 +118,8 @@ def main(batch_size=8, num_workers=2):
     # Previous attempts to normalize tensor from torchvision.io.read_image yielded incorrect outputs
     # Use Pillow to read PIL image then convert to tensor worked well
     totensor = transforms.ToTensor()
-    # # smaller edge of the image will be matched to 224
-    # resize = transforms.Resize(224)
+    # Resize the image to be 99x99
+    resize = transforms.Resize(99)
     # # center square crop of (250, 250)
     # crop = transforms.CenterCrop(250)
     # To use pretrained models, input must be normalized as follows (pytorch models documentation):
@@ -121,11 +135,11 @@ def main(batch_size=8, num_workers=2):
 
     # compose the pre-processing and augmentation transforms
     composed_aug_transforms = transforms.Compose(
-        (grayscale, jitter, np.array, totensor, normalize))
+        (resize, grayscale, jitter, np.array, totensor, normalize))
     # test data typically should not be augmented
-    no_aug_transforms = transforms.Compose((np.array, totensor, normalize))
+    no_aug_transforms = transforms.Compose((resize, np.array, totensor, normalize))
     # mask also need to be converted to tensor
-    mask_transform = transforms.Compose((np.array, totensor))
+    mask_transform = transforms.Compose((resize, np.array, array_threshold, totensor))
 
     data_train = FingerDataset(
         img_train, mask_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
@@ -150,7 +164,7 @@ def main(batch_size=8, num_workers=2):
         sample_idx = torch.randint(len(data_train), size=(1,)).item()
         img, mask, finger_coors = data_train[sample_idx]
         figure.add_subplot(rows, cols, i)
-
+        #print(f"Image shape {img.shape}, Mask shape {mask.shape}")
         plt.title(f"Image {i}")
         plt.axis("off")
         plt.imshow(unnormalize(img).permute(1, 2, 0))
@@ -161,3 +175,5 @@ def main(batch_size=8, num_workers=2):
         plt.imshow((mask.permute(1, 2, 0)*255))
     plt.show()
     return loader_train, loader_val, loader_test
+
+main()
