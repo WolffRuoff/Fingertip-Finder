@@ -55,13 +55,15 @@ class FingerDataset(Dataset):
         obj_ids = np.unique(mask)
         # obj_ids will be [0, 127, 255]. 0 is the background which we don't want
         obj_ids = obj_ids[1:]
-
+        
         # Grab the bounding box for the hand
+        fingertip_coor = np.where(mask == obj_ids[0])
         coors = np.where(mask == obj_ids[1])
-        ymin = np.min(coors[0])
-        ymax = np.max(coors[0])
-        xmin = np.min(coors[1])
-        xmax = np.max(coors[1])
+        coors = (np.concatenate([coors[0], fingertip_coor[0]]), np.concatenate([coors[1], fingertip_coor[1]]))
+        ymin = np.max([np.min(coors[0])-5,0])
+        ymax = np.max(coors[0])+5
+        xmin = np.max([np.min(coors[1])-5,0])
+        xmax = np.max(coors[1])+5
 
         # Crop the image and mask to the bounding box
         image = image[ymin:ymax, xmin:xmax]
@@ -78,7 +80,7 @@ class FingerDataset(Dataset):
         # Make the padding on the mask a 1 value so that it can easily be removed later
         padded_mask = np.zeros((larger_dim, larger_dim))
         padded_mask[0:mask.shape[0], 0:mask.shape[1]] = mask 
-
+        
         if self.img_transform:
             image = Image.fromarray(padded_image)
             image = self.img_transform(image)
@@ -88,9 +90,9 @@ class FingerDataset(Dataset):
         
         # This grabs the coordinate of the fingertip from the cropped mask
         fingertip_coors = np.where(mask == 1)
+        
         fingertip_coor = np.rint((np.mean(fingertip_coors[1]), np.mean(fingertip_coors[0])))
         fingertip_coor = torch.tensor(fingertip_coor, dtype=torch.int32)
-
         return image, fingertip_coor
 
 # pre-processing transformations
@@ -169,7 +171,6 @@ def main(batch_size=8, num_workers=2):
         img = unnormalize(img).cpu().permute(1, 2, 0).numpy().copy()
         img = cv.circle(img, (fingertip_coor[0].item(), fingertip_coor[1].item()), 7, (255,0,0), 1)
         figure.add_subplot(rows, cols, i)
-        #print(f"Image shape {img.shape}, Mask shape {mask.shape}")
         plt.title(f"Image {i}")
         plt.axis("off")
         plt.imshow(img)
