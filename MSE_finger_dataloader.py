@@ -88,8 +88,8 @@ class FingerDataset(Dataset):
         
         # This grabs the coordinate of the fingertip from the cropped mask
         fingertip_coors = np.where(mask == 1)
-        fingertip_coor = np.rint((np.mean(fingertip_coors[0]), np.mean(fingertip_coors[1])))
-        fingertip_coor = (int(fingertip_coor[1]), int(fingertip_coor[0]))
+        fingertip_coor = np.rint((np.mean(fingertip_coors[1]), np.mean(fingertip_coors[0])))
+        fingertip_coor = torch.tensor(fingertip_coor, dtype=torch.int32)
 
         return image, fingertip_coor
 
@@ -167,7 +167,7 @@ def main(batch_size=8, num_workers=2):
         sample_idx = torch.randint(len(data_train), size=(1,)).item()
         img, fingertip_coor = data_train[sample_idx]
         img = unnormalize(img).cpu().permute(1, 2, 0).numpy().copy()
-        img = cv.circle(img, fingertip_coor, 7, (255,0,0), 1)
+        img = cv.circle(img, (fingertip_coor[0].item(), fingertip_coor[1].item()), 7, (255,0,0), 1)
         figure.add_subplot(rows, cols, i)
         #print(f"Image shape {img.shape}, Mask shape {mask.shape}")
         plt.title(f"Image {i}")

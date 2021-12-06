@@ -12,7 +12,7 @@ def get_acc_fingertip_2(predictions, labels, precision):
     return torch.sum(torch.round(predictions)-precision < labels < torch.round(predictions)+precision)/(labels.shape[0])
 
 # train for the regression task of estimating the fingertip coordinates (x is distance from top, y is distance from left)
-def train_fingertip(model, loader_train, loader_val, lr=1e-4, num_epochs=10, device='cpu', patience=5, evaluation_interval=None):
+def train(model, loader_train, loader_val, lr=1e-4, num_epochs=10, device='cpu', patience=5, evaluation_interval=None):
     # initialize lists to store logs of the validation loss and validation accuracy
     val_loss_hist = []
     val_acc_hist = []
@@ -47,6 +47,7 @@ def train_fingertip(model, loader_train, loader_val, lr=1e-4, num_epochs=10, dev
             optimizer.zero_grad()
             
             output = model(X_batch)
+            
             batch_loss = loss_fn(output, y_batch.float())
             # compute the gradients and take optimization step
             batch_loss.backward()

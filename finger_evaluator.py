@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import gc
-import trainer
+import finger_trainer
 
 # forward pass for inference and evaluation
 def get_inference_output(model, X_in, device):
@@ -24,7 +24,7 @@ def evaluate_model_fingertip(model, loader_val, loss_fn, device):
             output = get_inference_output(model, X_val, device)
             batch_loss = loss_fn(output, y_val.float())
             
-        batch_acc = trainer.get_acc_fingertip(output, y_val)
+        batch_acc = finger_trainer.get_acc_fingertip(output, y_val)
         
         acc_val.append(batch_acc.item())
         loss_val.append(batch_loss.item())
