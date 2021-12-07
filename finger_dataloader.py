@@ -56,20 +56,20 @@ class FingerDataset(Dataset):
         # obj_ids will be [0, 127, 255]. 0 is the background which we don't want
         obj_ids = obj_ids[1:]
 
-        # Grab the bounding box for the hand
-        coors = np.where(mask == obj_ids[1])
-        ymin = np.min(coors[0])
-        ymax = np.max(coors[0])
-        xmin = np.min(coors[1])
-        xmax = np.max(coors[1])
+#         # Grab the bounding box for the hand
+#         coors = np.where(mask == obj_ids[1])
+#         ymin = np.min(coors[0])
+#         ymax = np.max(coors[0])
+#         xmin = np.min(coors[1])
+#         xmax = np.max(coors[1])
 
-        # Crop the image and mask to the bounding box
-        image = image[ymin:ymax, xmin:xmax]
-        mask = mask[ymin:ymax, xmin:xmax]
+#         # Crop the image and mask to the bounding box
+#         image = image[ymin:ymax, xmin:xmax]
+#         mask = mask[ymin:ymax, xmin:xmax]
 
         # This grabs the coordinate of the fingertip
         fingertip_coor = np.where(mask == obj_ids[0])
-        fingertip_coor = (fingertip_coor[0].item(), fingertip_coor[1].item())
+        fingertip_coor = np.array((fingertip_coor[0].item(), fingertip_coor[1].item()))
 
         #print(mask_path)
         #print(obj_ids)
@@ -78,7 +78,8 @@ class FingerDataset(Dataset):
             image = self.img_transform(image)
         if self.mask_transform:
             mask = self.mask_transform(mask)
-        return image, mask, fingertip_coor
+#         return image, mask, fingertip_coor
+        return image, fingertip_coor
 
 # pre-processing transformations
 # threshold the images with opencv to reduce noise and improve generalization
@@ -142,22 +143,35 @@ def main(batch_size=8, num_workers=2):
     loader_test = DataLoader(
         data_test, batch_size=batch_size, shuffle=False, num_workers=0, drop_last=True)
 
-    print(data_train[0][0].shape, data_train[0][1].shape)
+    print(data_train[0][0].shape)
     
-    figure = plt.figure(figsize=(12, 6))
-    cols, rows = 3, 2
+#     figure = plt.figure(figsize=(12, 6))
+#     cols, rows = 3, 2
+#     for i in range(1, int((cols * rows)/2 + 1)):
+#         sample_idx = torch.randint(len(data_train), size=(1,)).item()
+#         img, mask, finger_coors = data_train[sample_idx]
+#         figure.add_subplot(rows, cols, i)
+
+#         plt.title(f"Image {i}")
+#         plt.axis("off")
+#         plt.imshow(unnormalize(img).permute(1, 2, 0))
+#         j = cols + i
+#         figure.add_subplot(rows, cols, j)
+#         plt.title(f"Image {i}")
+#         plt.axis("off")
+#         plt.imshow((mask.permute(1, 2, 0)*255))
+#     plt.show()
+#     return loader_train, loader_val, loader_test
+
+    figure = plt.figure(figsize=(12, 4))
+    cols, rows = 3, 1
     for i in range(1, int((cols * rows)/2 + 1)):
         sample_idx = torch.randint(len(data_train), size=(1,)).item()
-        img, mask, finger_coors = data_train[sample_idx]
+        img, finger_coors = data_train[sample_idx]
         figure.add_subplot(rows, cols, i)
-
-        plt.title(f"Image {i}")
+        plt.title(f"Image {i} " + f"coordinate {str(finger_coors)}")
         plt.axis("off")
         plt.imshow(unnormalize(img).permute(1, 2, 0))
-        j = cols + i
-        figure.add_subplot(rows, cols, j)
-        plt.title(f"Image {i}")
-        plt.axis("off")
-        plt.imshow((mask.permute(1, 2, 0)*255))
     plt.show()
+    
     return loader_train, loader_val, loader_test
