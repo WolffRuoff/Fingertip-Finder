@@ -131,7 +131,7 @@ def get_img_output(img, model, device='cuda'):
     # adding a batch dimension (batch of one)
     img = torch.unsqueeze(img, 0)
     x_out = evaluator.get_inference_output(model, img, device)
-    x_out = torch.where(x_out > 0, 1, 0).cpu()
+    x_out = torch.where(x_out < 0, 1, 0).cpu()
     # reshape model output to have shape (batch_size, channel, height, width)
     x_out = x_out.reshape(1, 480, 640)
     # take image and model output out of batch dimension
