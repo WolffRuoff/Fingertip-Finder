@@ -39,15 +39,15 @@ model2 = get_model(2)
 
 
 def find_fingertip(img):
-
     if img.shape != (480, 640, 3):
         img = cv2.resize(img, (640, 480), interpolation=cv2.INTER_AREA)
 
     _, output = get_img_output(img, model1, device)
 
-    # If no fingertip
+    # If no hand detected
     if output.all() == 0:
         return img, (0,0)
+        
     crop_img, anchor = crop_image(img, output)
     mask_shape = crop_img.shape
 
@@ -57,18 +57,27 @@ def find_fingertip(img):
 
     sq_img, finger_coor = get_finger_coor(pad_img, model2, device)
 
+    ''' Uncomment to save images within the pipeline
+    cv2.imwrite("Graphics/Demo/input.jpg", img)
+    coor = (int(round(finger_coor[0])),int(round(finger_coor[1])))
+    sq_img = cv2.resize(np.array(pad_img), (99, 99), interpolation=cv2.INTER_AREA)
+    sq_write_image = cv2.circle(sq_img, coor, 4, (255, 0, 0), -1)
+    cv2.imwrite(f"Graphics/Demo/model2.jpg", sq_write_image)
+    '''
     # Reverse what we did to the image to get the actualy finger coordinate
     finger_coor_x = (pad_shape[0] * finger_coor[0]) / 99
     finger_coor_y = (pad_shape[1] * finger_coor[1]) / 99
     finger_prediction = (finger_coor_x + anchor[0], finger_coor_y + anchor[1])
 
-    #img = unnormalize(orimg).cpu().permute(1, 2, 0).numpy().copy()
     finger_prediction = np.rint((finger_prediction[0], finger_prediction[1]))
     finger_prediction = (int(finger_prediction[0]), int(finger_prediction[1]))
 
     # Add the labels to the images
     prediction_image = cv2.rectangle(
         img, (anchor[0], anchor[1]), (anchor[2], anchor[3]), (0, 255, 0), 1)
+    # Uncomment to save model 1 output
+    #cv2.imwrite(f"Graphics/Demo/model1.jpg", img)
+
     prediction_image = cv2.circle(
         prediction_image, finger_prediction, 4, (255, 0, 0), -1)
     return prediction_image, finger_prediction
@@ -129,8 +138,10 @@ def array_threshold(img):
 
 
 def test():
+    #img, finger_prediction = find_fingertip(
+    #    np.array(Image.open('training_data/color/color_img0025479.jpg')))
     img, finger_prediction = find_fingertip(
-        np.array(Image.open('training_data/color/color_img0000046.jpg')))
+        np.array(Image.open('training_data/color/color_img0025500.jpg')))
 
     plt.title(f"Predicted {finger_prediction}")
     plt.axis("off")
