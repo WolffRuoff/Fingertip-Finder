@@ -8,8 +8,8 @@ from matplotlib import pyplot as plt
 from matplotlib.image import imsave
 from PIL import Image, UnidentifiedImageError
 
+# For egofinger dataset
 # create dataset and split into training, validation, and test sets
-
 # img_dir is the directory where the images are located
 # please modify as needed to match the folder structure
 img_dir = './training_data/color/'
@@ -41,6 +41,29 @@ dep8_paths = np.take(dep8_paths, take_idx)
 img_train, mask_train, dep8_train = img_paths[:25000], mask_paths[:25000], dep8_paths[:25000]
 img_val, mask_val, dep8_val = img_paths[25000:26500], mask_paths[25000:26500], dep8_paths[25000:26500]
 img_test, mask_test, dep8_test = img_paths[26500:], mask_paths[26500:], dep8_paths[26500:]
+
+
+# for IPN webcam dataset
+IPN_img_dir = './training_data/IPN_Hand/color/'
+IPN_mask_dir = './training_data/IPN_Hand/mask/'
+
+IPN_img_filenames = sorted(os.listdir(IPN_img_dir), key = lambda x: (x.split('_')[-4], x.split('_')[-2], x[-10:]))
+IPN_mask_filenames = sorted(os.listdir(IPN_mask_dir), key = lambda x: (x.split('_')[-4], x.split('_')[-2], x[-10:]))
+
+IPN_img_paths = [IPN_img_dir + p for p in IPN_img_filenames if '.jpg' in p]
+IPN_mask_paths = [IPN_mask_dir + p for p in IPN_mask_filenames if '.jpg' in p]
+
+take_idx = np.arange(len(IPN_img_paths))
+np.random.shuffle(take_idx)
+IPN_img_paths = np.take(IPN_img_paths, take_idx)
+IPN_mask_paths = np.take(IPN_mask_paths, take_idx)
+
+bounds = [int(len(IPN_img_paths)*0.8), int(len(IPN_img_paths)*0.9)]
+
+IPN_img_train, IPN_mask_train = IPN_img_paths[:bounds[0]], IPN_mask_paths[:bounds[0]]
+IPN_img_val, IPN_mask_val = IPN_img_paths[bounds[0]:bounds[1]], IPN_mask_paths[bounds[0]:bounds[1]]
+IPN_img_test, IPN_mask_test = IPN_img_paths[bounds[1]:], IPN_mask_paths[bounds[1]:]
+
 
 # pre-processing transformations
 # threshold the images with opencv to reduce noise and improve generalization
@@ -206,7 +229,7 @@ class FingerDataset_dep8(Dataset):
             product = self.mask_transform(product)
         return image, product    
 
-def main(batch_size=8, num_workers=2, resize_enabled=False, use_dep8=True):
+def main(batch_size=8, num_workers=2, resize_enabled=False, use_dep8=True, dataset='finger'):
     totensor = transforms.ToTensor()
     # smaller edge of the image will be matched to 224
     resize = transforms.Resize(224)
@@ -241,20 +264,30 @@ def main(batch_size=8, num_workers=2, resize_enabled=False, use_dep8=True):
         # mask also need to be converted to tensor
         mask_transform = transforms.Compose((np.array, totensor))
 
-    if use_dep8:
-        data_train = FingerDataset_dep8(
-            img_train, mask_train, dep8_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
-        data_val = FingerDataset_dep8(
-            img_val, mask_val, dep8_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
-        data_test = FingerDataset_dep8(
-            img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
+    if dataset == 'IPN':
+        data_train = FingerDataset(
+            IPN_img_train, IPN_mask_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
+        data_val = FingerDataset(
+            IPN_img_val, IPN_mask_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
+        data_test = FingerDataset(
+            IPN_img_test, IPN_mask_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
+        
     else:
-        data_train = FingerDataset_dep8(
-            img_train, mask_train, dep8_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
-        data_val = FingerDataset_dep8(
-            img_val, mask_val, dep8_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
-        data_test = FingerDataset_dep8(
-            img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
+        assert dataset == 'finger'
+        if use_dep8:
+            data_train = FingerDataset_dep8(
+                img_train, mask_train, dep8_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
+            data_val = FingerDataset_dep8(
+                img_val, mask_val, dep8_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
+            data_test = FingerDataset_dep8(
+                img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
+        else:
+            data_train = FingerDataset(
+                img_train, mask_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
+            data_val = FingerDataset(
+                img_val, mask_val, img_transform=no_aug_transforms, mask_transform=mask_transform)
+            data_test = FingerDataset(
+                img_test, mask_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
 
     # initialize dataloaders for the dataset
     loader_train = DataLoader(data_train, batch_size=batch_size, shuffle=True,
