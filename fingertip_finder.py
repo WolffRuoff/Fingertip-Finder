@@ -45,6 +45,9 @@ def find_fingertip(img):
 
     _, output = get_img_output(img, model1, device)
 
+    # If no fingertip
+    if output.all() == 0:
+        return img, (0,0)
     crop_img, anchor = crop_image(img, output)
     mask_shape = crop_img.shape
 
@@ -127,9 +130,10 @@ def array_threshold(img):
 
 def test():
     img, finger_prediction = find_fingertip(
-        np.array(Image.open('training_data/color/color_img0000046.jpg')))
+        np.array(Image.open('test.jpg')))
 
     plt.title(f"Predicted {finger_prediction}")
     plt.axis("off")
     plt.imshow(img)
     plt.show()
+test()
