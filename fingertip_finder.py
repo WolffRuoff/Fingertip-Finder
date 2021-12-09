@@ -130,10 +130,9 @@ def array_threshold(img):
 
 def test():
     img, finger_prediction = find_fingertip(
-        np.array(Image.open('test.jpg')))
+        np.array(Image.open('training_data/color/color_img0000046.jpg')))
 
     plt.title(f"Predicted {finger_prediction}")
     plt.axis("off")
     plt.imshow(img)
     plt.show()
-test()
