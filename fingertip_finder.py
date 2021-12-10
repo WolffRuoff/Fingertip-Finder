@@ -16,8 +16,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Device:', device)
 
 totensor = transforms.ToTensor()
-normalize = transforms.Normalize(
-    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
 
 def get_model(n):
@@ -25,7 +24,7 @@ def get_model(n):
     if n == 1:
         model.fc = nn.Linear(512, 480*640)
         model.load_state_dict(torch.load(
-            'saved_models/resnet18_notile_full.model', map_location=torch.device(device)))
+            'saved_models/resnet18_notile_full_IPN.model', map_location=torch.device(device)))
     elif n == 2:
         model.fc = nn.Linear(512, 2)
         model.load_state_dict(torch.load(
@@ -35,6 +34,7 @@ def get_model(n):
 
 
 model1 = get_model(1)
+print(model1.fc)
 model2 = get_model(2)
 
 
@@ -45,7 +45,7 @@ def find_fingertip(img):
     _, output = get_img_output(img, model1, device)
 
     # If no hand detected
-    if output.all() == 0:
+    if np.mean(np.array(output)) == 0:
         return img, (0,0)
         
     crop_img, anchor = crop_image(img, output)
@@ -90,7 +90,8 @@ def get_img_output(img, model, device='cuda'):
     # adding a batch dimension (batch of one)
     img = torch.unsqueeze(img, 0)
     x_out = evaluator.get_inference_output(model, img, device)
-    x_out = torch.where(x_out < 0, 1, 0).cpu()
+    x_out = torch.where(x_out > 0, 1, 0).cpu()
+    
     # reshape model output to have shape (batch_size, channel, height, width)
     x_out = x_out.reshape(1, 480, 640)
     # take image and model output out of batch dimension
@@ -141,9 +142,10 @@ def test():
     #img, finger_prediction = find_fingertip(
     #    np.array(Image.open('training_data/color/color_img0025479.jpg')))
     img, finger_prediction = find_fingertip(
-        np.array(Image.open('training_data/color/color_img0025500.jpg')))
+        np.array(Image.open('training_data/IPN_Hand/color/1CM1_1_R_#217_000300.jpg')))
 
     plt.title(f"Predicted {finger_prediction}")
     plt.axis("off")
     plt.imshow(img)
     plt.show()
+test()
