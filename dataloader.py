@@ -149,6 +149,7 @@ class FingerDataset(Dataset):
             image = self.img_transform(image)
         if self.mask_transform:
             mask = self.mask_transform(mask)   
+        mask = torch.where(mask > 0, 1, 0)
         return image, mask    
 
 # USE THIS AS DATASET IN MAIN IF USING DEP8 FOR MASK GENERATION
@@ -206,6 +207,7 @@ class FingerDataset_dep8(Dataset):
         imsave(self.dep8_mask_dir + '/' + dep8_path.split('/')[-1], product)
         if self.mask_transform:
             product = self.mask_transform(product)
+        product = torch.where(product > 0, 1, 0)
         return image, product    
 
 def create_IPN_dataset(IPN_path, composed_aug_transforms, no_aug_transforms, mask_transform):
@@ -234,7 +236,7 @@ def create_finger_dataset(finger_path, use_dep8, composed_aug_transforms, no_aug
             img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
     else:
         img_train, img_val, img_test, mask_train, mask_val, mask_test = load_paths(
-            folder_path=FINGER_PATH, use_dep8=False, sortkey=None)
+            folder_path=finger_path, use_dep8=False, sortkey=None)
 
         data_train = FingerDataset(
             img_train, mask_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
