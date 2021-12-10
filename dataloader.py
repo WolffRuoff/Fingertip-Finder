@@ -234,7 +234,7 @@ def create_finger_dataset(finger_path, use_dep8, composed_aug_transforms, no_aug
             img_test, mask_test, dep8_test, img_transform=no_aug_transforms, mask_transform=mask_transform)
     else:
         img_train, img_val, img_test, mask_train, mask_val, mask_test = load_paths(
-            folder_path=FINGER_PATH, use_dep8=False, sortkey=None)
+            folder_path=finger_path, use_dep8=False, sortkey=None)
 
         data_train = FingerDataset(
             img_train, mask_train, img_transform=composed_aug_transforms, mask_transform=mask_transform)
