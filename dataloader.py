@@ -19,7 +19,7 @@ def load_paths(folder_path='./training_data', use_dep8=False, sortkey=None):
     mask_filenames = sorted(os.listdir(mask_dir), key=sortkey)
 
     img_paths = [img_dir + p for p in img_filenames if '.jpg' in p]
-    mask_paths = [mask_dir + p for p in mask_filenames if '.jpg' in p or '.png' in p]
+    mask_paths = [mask_dir + p for p in mask_filenames if '.png' in p]
 
     if use_dep8:
         dep8_dir = folder_path + '/depth8/'
