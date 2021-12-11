@@ -18,14 +18,13 @@ def fix_masks(file_name):
     img[img > 150] = 255
     img[img <= 150] = 0
     img = cv2.resize(img, (640, 480), interpolation = cv2.INTER_AREA)
-    cv2.imwrite(f"training_data/IPN_hand/mask/{file_name.rsplit('/')[-1]}", img)
+    cv2.imwrite(f"training_data/IPN_hand/mask/{file_name.rsplit('/')[-1][:-4] + '.png'}", img)
 
 def main():
     folder = ['/Users/ethanruoff/Downloads/segment']
     folder = go_deeper_folder(folder)
     folder = go_deeper_folder(folder)
     folder.sort(key = lambda x: (x.split('_')[-4], x.split('_')[-2], x[-10:]))
-    
     i = 0
     while i < 40000:
         fix_masks(folder[i])

@@ -85,11 +85,11 @@ def main():
     
     for i in range(len(folders)):
         total_count_color = extract_frames_and_mask(
-            folders[i] + '/data.txt', folders[i] + '/sample_color.avi', './training_data', total_count_color)
+            folders[i] + '/data.txt', folders[i] + '/sample_color.avi', '../training_data', total_count_color)
         total_count_depth = extract_frames(
-            folders[i] + '/sample_depth8.avi', './training_data/depth8/depth8', total_count_depth)
+            folders[i] + '/sample_depth8.avi', '../training_data/depth8/depth8', total_count_depth)
         total_count_sample = extract_frames(
-            folders[i] + '/sample_map.avi', './training_data/sample_map/sample_map', total_count_sample)
+            folders[i] + '/sample_map.avi', '../training_data/sample_map/sample_map', total_count_sample)
         if total_count_color > count_printer:
             count_printer += 1000
             print(f"Created {total_count_color} samples up to {i} folders")
