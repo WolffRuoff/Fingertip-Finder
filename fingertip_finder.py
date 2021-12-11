@@ -24,7 +24,7 @@ def get_model(n):
     if n == 1:
         model.fc = nn.Linear(512, 480*640)
         model.load_state_dict(torch.load(
-            'saved_models/resnet18_notile_full_IPN.model', map_location=torch.device(device)))
+            'saved_models/resnet18_notile_combined.model', map_location=torch.device(device)))
     elif n == 2:
         model.fc = nn.Linear(512, 2)
         model.load_state_dict(torch.load(
@@ -113,10 +113,10 @@ def get_finger_coor(img, model, device='cuda'):
 def crop_image(img, mask):
     # Grab the bounding box for the hand
     coors = np.where(mask == 1)
-    ymin = np.max([np.min(coors[0])-5, 0])
-    ymax = np.min([np.max(coors[0])+5, 480])
-    xmin = np.max([np.min(coors[1])-5, 0])
-    xmax = np.min([np.max(coors[1])+5, 640])
+    ymin = np.max([np.min(coors[0])-90, 0])
+    ymax = np.min([np.max(coors[0])+60, 480])
+    xmin = np.max([np.min(coors[1])-60, 0])
+    xmax = np.min([np.max(coors[1])+60, 640])
 
     # Crop the image and mask to the bounding box
     img = img[ymin:ymax, xmin:xmax]
@@ -148,4 +148,3 @@ def test():
     plt.axis("off")
     plt.imshow(img)
     plt.show()
-test()
